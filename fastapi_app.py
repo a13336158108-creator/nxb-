@@ -1,5 +1,6 @@
 import json
 import secrets
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 from urllib.parse import unquote, urlsplit
@@ -54,6 +55,63 @@ def _state_positions_to_core(state: Dict[str, Any]) -> List[Dict[str, Any]]:
     return positions
 
 
+def _find_position(
+    state: Dict[str, Any],
+    exchange_name: str,
+    symbol: str,
+    side: str,
+) -> Optional[Dict[str, Any]]:
+    positions = state.get("positions", [])
+    if not isinstance(positions, list):
+        return None
+    for item in positions:
+        if not isinstance(item, dict):
+            continue
+        if item.get("exchange") != exchange_name:
+            continue
+        if item.get("symbol") != symbol:
+            continue
+        if side and item.get("side") != side:
+            continue
+        return item
+    return None
+
+
+def _serialize_trade(trade: Dict[str, Any]) -> Dict[str, Any]:
+    fee = trade.get("fee") or {}
+    return {
+        "id": trade.get("id"),
+        "order": trade.get("order"),
+        "side": trade.get("side"),
+        "price": trade.get("price"),
+        "amount": trade.get("amount"),
+        "cost": trade.get("cost"),
+        "timestamp": trade.get("timestamp"),
+        "datetime": trade.get("datetime"),
+        "fee_cost": fee.get("cost"),
+        "fee_currency": fee.get("currency"),
+    }
+
+
+def _summarize_trades(trades: List[Dict[str, Any]], position_side: Optional[str]) -> Dict[str, Any]:
+    if position_side not in ("long", "short"):
+        return {"trade_side": None, "trade_vwap": None, "trade_amount": None}
+    trade_side = "buy" if position_side == "long" else "sell"
+    total_qty = 0.0
+    total_cost = 0.0
+    for trade in trades:
+        if trade.get("side") != trade_side:
+            continue
+        price = trade.get("price")
+        amount = trade.get("amount")
+        if price is None or amount is None:
+            continue
+        total_qty += float(amount)
+        total_cost += float(price) * float(amount)
+    trade_vwap = total_cost / total_qty if total_qty > 0 else None
+    return {"trade_side": trade_side, "trade_vwap": trade_vwap, "trade_amount": total_qty or None}
+
+
 def _is_forbidden_request_path(request_path: str) -> bool:
     path = unquote(urlsplit(request_path).path)
     parts = [p for p in path.split("/") if p]
@@ -66,6 +124,20 @@ def _is_forbidden_request_path(request_path: str) -> bool:
     return False
 
 
+def _forwarded_prefix(request: Request) -> str:
+    prefix = (request.headers.get("x-forwarded-prefix") or "").strip()
+    if not prefix:
+        return ""
+    if not prefix.startswith("/"):
+        prefix = "/" + prefix
+    prefix = prefix.rstrip("/")
+    return "" if prefix == "/" else prefix
+
+
+def _cookie_path_for_prefix(prefix: str) -> str:
+    return prefix if prefix else "/"
+
+
 class SafeStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope) -> Response:  # type: ignore[override]
         if _is_forbidden_request_path("/" + path):
@@ -73,13 +145,21 @@ class SafeStaticFiles(StaticFiles):
         return await super().get_response(path, scope)
 
 
-def create_app(root_dir: Path, data_dir: Path, auth_user: str = "", auth_pass: str = "") -> FastAPI:
+def create_app(
+    root_dir: Path,
+    data_dir: Path,
+    auth_user: str = "",
+    auth_pass: str = "",
+    exchanges: Optional[Dict[str, Any]] = None,
+) -> FastAPI:
     app = FastAPI()
     app.state.root_dir = root_dir
     app.state.data_dir = data_dir
     app.state.auth_user = auth_user
     app.state.auth_pass = auth_pass
     app.state.sessions = set()  # type: Set[str]
+    app.state.exchanges = exchanges or {}
+    app.state.exchange_locks = {name: threading.Lock() for name in app.state.exchanges}
 
     unauth_paths = {"/login.html", "/api/login", "/api/logout", "/favicon.ico"}
 
@@ -101,7 +181,8 @@ def create_app(root_dir: Path, data_dir: Path, auth_user: str = "", auth_pass: s
         if not authorized:
             if path.startswith("/api/"):
                 return _json_response({"error": "Unauthorized"}, status_code=401)
-            return RedirectResponse("/login.html", status_code=303)
+            prefix = _forwarded_prefix(request)
+            return RedirectResponse(f"{prefix}/login.html" if prefix else "/login.html", status_code=303)
         return await call_next(request)
 
     @app.post("/api/login")
@@ -121,7 +202,15 @@ def create_app(root_dir: Path, data_dir: Path, auth_user: str = "", auth_pass: s
         token = secrets.token_urlsafe(32)
         request.app.state.sessions.add(token)
         response = _json_response({"ok": True}, status_code=200)
-        response.set_cookie("shadow_session", token, max_age=86400, httponly=True, samesite="lax", path="/")
+        prefix = _forwarded_prefix(request)
+        response.set_cookie(
+            "shadow_session",
+            token,
+            max_age=86400,
+            httponly=True,
+            samesite="lax",
+            path=_cookie_path_for_prefix(prefix),
+        )
         return response
 
     @app.get("/api/logout")
@@ -198,5 +287,6 @@ def _clear_session(request: Request) -> JSONResponse:
     if token:
         request.app.state.sessions.discard(token)
     response = _json_response({"ok": True}, status_code=200)
-    response.delete_cookie("shadow_session", path="/")
+    prefix = _forwarded_prefix(request)
+    response.delete_cookie("shadow_session", path=_cookie_path_for_prefix(prefix))
     return response

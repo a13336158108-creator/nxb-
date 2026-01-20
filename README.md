@@ -159,6 +159,71 @@ python3 service.py --host 0.0.0.0 --port 8080 --auth-user YOURUSER --auth-pass Y
 Default login credentials (when not set via env/flags): `nxb` / `nxb`.
 Login page: `/login.html` (logout via `/api/logout`).
 
+## Production setup: systemd + Caddy (path-based)
+Recommended pattern:
+- The app listens on a **local-only** port (e.g. `127.0.0.1:9001`)
+- Caddy listens on `:80`/`:443` and exposes the app at a path prefix:
+  `http(s)://YOUR_HOST/shadow-arb-monitor/`
+
+### systemd unit
+Example unit (installed on this server as `/etc/systemd/system/shadow-arb-monitor.service`):
+```ini
+[Unit]
+Description=shadow_arb_monitor (monitor + UI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/shadow_arb_monitor
+EnvironmentFile=-/root/shadow_arb_monitor/.env
+ExecStart=/usr/bin/python3 /root/shadow_arb_monitor/service.py --host 127.0.0.1 --port 9001 --interval 60
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable + start:
+```
+systemctl daemon-reload
+systemctl enable --now shadow-arb-monitor
+systemctl status shadow-arb-monitor --no-pager -l
+```
+
+Logs:
+```
+journalctl -u shadow-arb-monitor -f
+```
+
+### Caddy reverse proxy (path `/shadow-arb-monitor/`)
+Config lives at `/etc/caddy/Caddyfile` (installed on this server with a path-based proxy):
+```caddyfile
+:80 {
+  redir /shadow-arb-monitor /shadow-arb-monitor/ 308
+
+  handle_path /shadow-arb-monitor/* {
+    reverse_proxy 127.0.0.1:9001 {
+      header_up X-Forwarded-Prefix /shadow-arb-monitor
+    }
+  }
+}
+```
+
+Reload after editing:
+```
+caddy validate --config /etc/caddy/Caddyfile
+systemctl reload caddy
+```
+
+Access:
+- `http://YOUR_HOST/shadow-arb-monitor/`
+
+Notes:
+- For automatic HTTPS, replace `:80` with your domain (and ensure DNS points to this server). Caddy will then use `:443` automatically.
+- Keep `.env` out of git (already in `.gitignore`) and use read-only API keys.
+
 ## Formulas used (explicit)
 - Notional = |positionSize| * markPrice
 - spread = (price_A - price_B) / min(price_A, price_B)

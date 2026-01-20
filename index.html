@@ -428,9 +428,9 @@
     async function refreshOnce() {
       setStatus("加载中", "");
       try {
-        const res = await fetch("/api/monitor");
+        const res = await fetch("api/monitor");
         if (res.status === 401) {
-          window.location.href = "/login.html";
+          window.location.href = "login.html";
           return;
         }
         const data = await res.json();
@@ -450,9 +450,9 @@
     refreshBtn.addEventListener("click", () => refreshOnce());
     logoutBtn.addEventListener("click", async () => {
       try {
-        await fetch("/api/logout", { method: "POST" });
+        await fetch("api/logout", { method: "POST" });
       } finally {
-        window.location.href = "/login.html";
+        window.location.href = "login.html";
       }
     });
     refreshOnce();
