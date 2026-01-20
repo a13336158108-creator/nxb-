@@ -136,7 +136,7 @@ External access (bind all interfaces):
 ```
 python3 web_server.py --host 0.0.0.0 --port 8080 --auth-user YOURUSER --auth-pass YOURPASS
 ```
-Default basic-auth credentials (when not set via env/flags): `nxb` / `nxb`.
+Default login credentials (when not set via env/flags): `nxb` / `nxb`.
 Login page: `/login.html` (logout via `/api/logout`).
 
 ## Combined monitor + UI service (single port)
@@ -156,7 +156,7 @@ External access (bind all interfaces):
 ```
 python3 service.py --host 0.0.0.0 --port 8080 --auth-user YOURUSER --auth-pass YOURPASS
 ```
-Default basic-auth credentials (when not set via env/flags): `nxb` / `nxb`.
+Default login credentials (when not set via env/flags): `nxb` / `nxb`.
 Login page: `/login.html` (logout via `/api/logout`).
 
 ## Formulas used (explicit)

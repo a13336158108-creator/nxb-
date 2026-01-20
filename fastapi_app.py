@@ -1,4 +1,3 @@
-import base64
 import json
 import secrets
 from pathlib import Path
@@ -67,21 +66,6 @@ def _is_forbidden_request_path(request_path: str) -> bool:
     return False
 
 
-def _is_authorized(header: str, auth_user: str, auth_pass: str) -> bool:
-    if not auth_user:
-        return True
-    if not header.startswith("Basic "):
-        return False
-    try:
-        decoded = base64.b64decode(header.split(" ", 1)[1]).decode("utf-8")
-    except Exception:
-        return False
-    if ":" not in decoded:
-        return False
-    user, password = decoded.split(":", 1)
-    return secrets.compare_digest(user, auth_user) and secrets.compare_digest(password, auth_pass)
-
-
 class SafeStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope) -> Response:  # type: ignore[override]
         if _is_forbidden_request_path("/" + path):
@@ -105,13 +89,10 @@ def create_app(root_dir: Path, data_dir: Path, auth_user: str = "", auth_pass: s
         if path in unauth_paths:
             return await call_next(request)
 
-        authorized = False
-        if request.app.state.auth_user:
-            header = request.headers.get("Authorization", "")
-            authorized = _is_authorized(header, request.app.state.auth_user, request.app.state.auth_pass)
-        else:
-            authorized = True
+        if not request.app.state.auth_user:
+            return await call_next(request)
 
+        authorized = False
         if not authorized:
             token = request.cookies.get("shadow_session", "")
             if token and token in request.app.state.sessions:
@@ -119,10 +100,7 @@ def create_app(root_dir: Path, data_dir: Path, auth_user: str = "", auth_pass: s
 
         if not authorized:
             if path.startswith("/api/"):
-                return Response(
-                    status_code=401,
-                    headers={"WWW-Authenticate": 'Basic realm="shadow_arb_monitor"'},
-                )
+                return _json_response({"error": "Unauthorized"}, status_code=401)
             return RedirectResponse("/login.html", status_code=303)
         return await call_next(request)
 
