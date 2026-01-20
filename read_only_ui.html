@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shadow Arb Monitor · Read Only</title>
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --panel: #fffaf2;
+        --ink: #1f2b2e;
+        --muted: #5f6c6f;
+        --accent: #1b6b63;
+        --accent-2: #c37740;
+        --line: #e5dacb;
+        --shadow: rgba(34, 52, 58, 0.1);
+        --expand: #0f766e;
+        --converge: #b45309;
+        --neutral: #6b7280;
+        --open: #0f766e;
+        --close: #b91c1c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Alegreya Sans", "Trebuchet MS", sans-serif;
+        background:
+          radial-gradient(900px 500px at 15% -10%, rgba(27, 107, 99, 0.15), transparent 65%),
+          radial-gradient(900px 500px at 110% 10%, rgba(195, 119, 64, 0.18), transparent 65%),
+          linear-gradient(140deg, rgba(255, 255, 255, 0.5), rgba(244, 239, 230, 0.9)),
+          var(--bg);
+        min-height: 100vh;
+      }
+      header {
+        padding: 32px 24px 16px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(30px, 4vw, 44px);
+        letter-spacing: 0.4px;
+        font-family: "Cormorant Garamond", "Garamond", serif;
+      }
+      .subtitle {
+        color: var(--muted);
+        font-size: 15px;
+        margin-bottom: 12px;
+      }
+      .shell {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px 48px;
+        display: grid;
+        gap: 20px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px 20px;
+        box-shadow: 0 14px 30px var(--shadow);
+        animation: rise 0.4s ease-out;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .row {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        align-items: end;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .controls input,
+      .controls button {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        background: #fff;
+      }
+      .controls button {
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .controls button.secondary {
+        background: #fff;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+      }
+      .controls button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(27, 107, 99, 0.18);
+      }
+      .status {
+        font-size: 13px;
+        color: var(--accent-2);
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .tag.expand,
+      .tag.open {
+        background: rgba(15, 118, 110, 0.12);
+        color: var(--expand);
+      }
+      .tag.converge,
+      .tag.close {
+        background: rgba(185, 28, 28, 0.12);
+        color: var(--close);
+      }
+      .tag.neutral {
+        background: rgba(107, 114, 128, 0.15);
+        color: var(--neutral);
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th,
+      td {
+        padding: 8px 6px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        white-space: nowrap;
+      }
+      th {
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .empty {
+        padding: 12px 6px;
+        color: var(--muted);
+      }
+      .grid-two {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Shadow Arb Monitor</h1>
+      <div class="subtitle">Read-only dashboard for local JSON output (route A).</div>
+    </header>
+    <main class="shell">
+      <section class="panel">
+        <div class="row">
+          <div>
+            <div class="muted">Data source</div>
+            <div><strong>data/state.json · data/events.json · data/positions.json</strong></div>
+            <div class="status" id="status">Idle.</div>
+          </div>
+          <div class="controls">
+            <label>
+              Interval (sec)
+              <input id="interval" type="number" min="2" value="10" />
+            </label>
+            <button onclick="refreshOnce()">Refresh once</button>
+            <button class="secondary" onclick="startAuto()">Auto refresh</button>
+            <button class="secondary" onclick="stopAuto()">Stop</button>
+          </div>
+        </div>
+        <div class="muted" id="last-update">No data yet.</div>
+      </section>
+
+      <section class="panel">
+        <h2>Pairs</h2>
+        <div class="table-wrap">
+          <table id="pairs-table"></table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Events</h2>
+        <div class="table-wrap">
+          <table id="events-table"></table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="grid-two">
+          <div>
+            <h2>Positions</h2>
+            <div class="table-wrap">
+              <table id="positions-table"></table>
+            </div>
+          </div>
+          <div>
+            <h2>Shadow Positions</h2>
+            <div class="table-wrap">
+              <table id="shadow-table"></table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      let timer = null;
+
+      const stateUrl = "data/state.json";
+      const eventsUrl = "data/events.json";
+      const shadowUrl = "data/positions.json";
+
+      function formatNumber(value, digits) {
+        if (value === null || value === undefined || value === "") return "--";
+        const num = Number(value);
+        if (!Number.isFinite(num)) return String(value);
+        return num.toFixed(digits);
+      }
+
+      function formatRate(value) {
+        if (value === null || value === undefined || value === "") return "--";
+        const num = Number(value);
+        if (!Number.isFinite(num)) return String(value);
+        return (num * 100).toFixed(4) + "%";
+      }
+
+      function formatTime(value) {
+        if (!value) return "--";
+        const num = Number(value);
+        if (!Number.isFinite(num)) return String(value);
+        const ms = num > 1000000000000 ? num : num * 1000;
+        const date = new Date(ms);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleString();
+      }
+
+      function setStatus(message, isError) {
+        const el = document.getElementById("status");
+        el.textContent = message;
+        el.style.color = isError ? "#b91c1c" : "#c37740";
+      }
+
+      function tag(text, className) {
+        const span = document.createElement("span");
+        span.className = "tag " + className;
+        span.textContent = text;
+        return span;
+      }
+
+      function clearTable(table) {
+        while (table.firstChild) {
+          table.removeChild(table.firstChild);
+        }
+      }
+
+      function renderPairs(pairs) {
+        const table = document.getElementById("pairs-table");
+        clearTable(table);
+        const headers = [
+          "symbol",
+          "state",
+          "signal",
+          "long_ex",
+          "short_ex",
+          "spread_now",
+          "spread_entry",
+          "spread_delta",
+          "price_long",
+          "price_short",
+          "net_funding"
+        ];
+        const thead = document.createElement("thead");
+        const hrow = document.createElement("tr");
+        headers.forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          hrow.appendChild(th);
+        });
+        thead.appendChild(hrow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        if (!pairs || !pairs.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = headers.length;
+          td.className = "empty";
+          td.textContent = "No pair data.";
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+        } else {
+          pairs.forEach((pair) => {
+            const tr = document.createElement("tr");
+            tr.appendChild(cell(pair.symbol));
+            tr.appendChild(tagCell(pair.state, pair.state));
+            tr.appendChild(tagCell(pair.signal, pair.signal === "OPEN" ? "open" : pair.signal === "CLOSE" ? "close" : "neutral"));
+            tr.appendChild(cell(pair.long_ex));
+            tr.appendChild(cell(pair.short_ex));
+            tr.appendChild(cell(formatNumber(pair.spread_now, 6)));
+            tr.appendChild(cell(formatNumber(pair.spread_entry, 6)));
+            tr.appendChild(cell(formatNumber(pair.spread_delta, 6)));
+            tr.appendChild(cell(formatNumber(pair.price_long, 6)));
+            tr.appendChild(cell(formatNumber(pair.price_short, 6)));
+            tr.appendChild(cell(formatNumber(pair.net_funding, 4)));
+            tbody.appendChild(tr);
+          });
+        }
+        table.appendChild(tbody);
+      }
+
+      function renderEvents(events) {
+        const table = document.getElementById("events-table");
+        clearTable(table);
+        const headers = ["ts", "event", "signal", "symbol", "long_ex", "short_ex", "spread_delta"];
+        const thead = document.createElement("thead");
+        const hrow = document.createElement("tr");
+        headers.forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          hrow.appendChild(th);
+        });
+        thead.appendChild(hrow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        if (!events || !events.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = headers.length;
+          td.className = "empty";
+          td.textContent = "No events.";
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+        } else {
+          events.forEach((event) => {
+            const tr = document.createElement("tr");
+            tr.appendChild(cell(formatTime(event.ts)));
+            tr.appendChild(tagCell(event.event, event.event));
+            tr.appendChild(tagCell(event.signal || "HOLD", event.signal === "OPEN" ? "open" : event.signal === "CLOSE" ? "close" : "neutral"));
+            tr.appendChild(cell(event.symbol));
+            tr.appendChild(cell(event.long_ex));
+            tr.appendChild(cell(event.short_ex));
+            tr.appendChild(cell(formatNumber(event.spread_delta, 6)));
+            tbody.appendChild(tr);
+          });
+        }
+        table.appendChild(tbody);
+      }
+
+      function renderPositions(positions) {
+        const table = document.getElementById("positions-table");
+        clearTable(table);
+        const headers = [
+          "exchange",
+          "symbol",
+          "side",
+          "size",
+          "entry_price",
+          "price",
+          "notional",
+          "funding_rate",
+          "next_funding_time"
+        ];
+        const thead = document.createElement("thead");
+        const hrow = document.createElement("tr");
+        headers.forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          hrow.appendChild(th);
+        });
+        thead.appendChild(hrow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        if (!positions || !positions.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = headers.length;
+          td.className = "empty";
+          td.textContent = "No positions.";
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+        } else {
+          positions.forEach((pos) => {
+            const tr = document.createElement("tr");
+            tr.appendChild(cell(pos.exchange));
+            tr.appendChild(cell(pos.symbol));
+            tr.appendChild(cell(pos.side));
+            tr.appendChild(cell(formatNumber(pos.size, 4)));
+            tr.appendChild(cell(formatNumber(pos.entry_price, 6)));
+            tr.appendChild(cell(formatNumber(pos.price, 6)));
+            tr.appendChild(cell(formatNumber(pos.notional, 2)));
+            tr.appendChild(cell(formatRate(pos.funding_rate)));
+            tr.appendChild(cell(formatTime(pos.next_funding_time)));
+            tbody.appendChild(tr);
+          });
+        }
+        table.appendChild(tbody);
+      }
+
+      function renderShadow(positions) {
+        const table = document.getElementById("shadow-table");
+        clearTable(table);
+        const headers = ["symbol", "long_ex", "short_ex", "opened_at", "last_state", "last_spread"];
+        const thead = document.createElement("thead");
+        const hrow = document.createElement("tr");
+        headers.forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          hrow.appendChild(th);
+        });
+        thead.appendChild(hrow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        if (!positions || !positions.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = headers.length;
+          td.className = "empty";
+          td.textContent = "No shadow positions.";
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+        } else {
+          positions.forEach((pos) => {
+            const tr = document.createElement("tr");
+            tr.appendChild(cell(pos.symbol));
+            tr.appendChild(cell(pos.long_ex));
+            tr.appendChild(cell(pos.short_ex));
+            tr.appendChild(cell(formatTime(pos.opened_at)));
+            tr.appendChild(tagCell(pos.last_state, pos.last_state));
+            tr.appendChild(cell(formatNumber(pos.last_spread, 6)));
+            tbody.appendChild(tr);
+          });
+        }
+        table.appendChild(tbody);
+      }
+
+      function cell(text) {
+        const td = document.createElement("td");
+        td.textContent = text === undefined || text === null || text === "" ? "--" : String(text);
+        return td;
+      }
+
+      function tagCell(text, className) {
+        const td = document.createElement("td");
+        td.appendChild(tag(text || "--", (className || "neutral").toLowerCase()));
+        return td;
+      }
+
+      async function fetchJson(path) {
+        const res = await fetch(path, { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status + " for " + path);
+        }
+        return res.json();
+      }
+
+      async function refreshOnce() {
+        setStatus("Loading...", false);
+        try {
+          const [state, events, shadow] = await Promise.all([
+            fetchJson(stateUrl),
+            fetchJson(eventsUrl),
+            fetchJson(shadowUrl)
+          ]);
+
+          renderPairs(state.pairs || []);
+          renderEvents((events && events.events) || []);
+          renderPositions(state.positions || []);
+          renderShadow((shadow && shadow.positions) || []);
+
+          const stamp = state.ts ? formatTime(state.ts) : "Unknown";
+          document.getElementById("last-update").textContent = "Last update: " + stamp;
+          if (state.message) {
+            setStatus(state.message, false);
+          } else {
+            setStatus("Updated.", false);
+          }
+        } catch (err) {
+          setStatus("Error: " + err.message, true);
+        }
+      }
+
+      function startAuto() {
+        stopAuto();
+        const value = Number(document.getElementById("interval").value || "10");
+        const interval = Math.max(2, value) * 1000;
+        refreshOnce();
+        timer = setInterval(refreshOnce, interval);
+        setStatus("Auto refresh enabled.", false);
+      }
+
+      function stopAuto() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+        setStatus("Auto refresh stopped.", false);
+      }
+
+      refreshOnce();
+    </script>
+  </body>
+</html>

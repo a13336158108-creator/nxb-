@@ -1,0 +1,48 @@
+{
+  "positions": [
+    {
+      "exchange": "Binance",
+      "symbol": "BTC/USDT",
+      "side": "long",
+      "size": 0.5,
+      "entry_price": 60000.0,
+      "price": 61000.0,
+      "mark_price": 61000.0,
+      "funding_rate": 0.0001,
+      "next_funding_time": 1760000000000
+    },
+    {
+      "exchange": "OKX",
+      "symbol": "BTC/USDT",
+      "side": "short",
+      "size": 0.5,
+      "entry_price": 59900.0,
+      "price": 60800.0,
+      "mark_price": 60800.0,
+      "funding_rate": -0.00005,
+      "next_funding_time": 1760000000000
+    },
+    {
+      "exchange": "Gate",
+      "symbol": "ETH/USDT",
+      "side": "long",
+      "size": 4.0,
+      "entry_price": 2000.0,
+      "price": 1950.0,
+      "mark_price": 1950.0,
+      "funding_rate": 0.0002,
+      "next_funding_time": 1760000000000
+    },
+    {
+      "exchange": "Bybit",
+      "symbol": "ETH/USDT",
+      "side": "short",
+      "size": 4.0,
+      "entry_price": 1980.0,
+      "price": 1960.0,
+      "mark_price": 1960.0,
+      "funding_rate": -0.0001,
+      "next_funding_time": 1760000000000
+    }
+  ]
+}

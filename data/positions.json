@@ -1,0 +1,29 @@
+{
+  "positions": [
+    {
+      "key": "BERA/USDT|Binance|Binance",
+      "last_spread": 0.0,
+      "last_state": "EXPAND",
+      "last_update": 1768841834,
+      "long_ex": "Binance",
+      "open_spread": 0.0,
+      "open_spread_entry": -0.042440400907164645,
+      "opened_at": 1768841834,
+      "short_ex": "Binance",
+      "symbol": "BERA/USDT"
+    },
+    {
+      "key": "BTC/USDT|Binance|OKX",
+      "last_spread": 0.003289473684210526,
+      "last_state": "EXPAND",
+      "last_update": 1768904570,
+      "long_ex": "Binance",
+      "open_spread": 0.003289473684210526,
+      "open_spread_entry": 0.001669449081803005,
+      "opened_at": 1768843319,
+      "short_ex": "OKX",
+      "symbol": "BTC/USDT"
+    }
+  ],
+  "ts": 1768904570
+}

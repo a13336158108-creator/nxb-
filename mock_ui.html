@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>套利监控表</title>
+  <style>
+    :root {
+      --bg-1: #f6fbff;
+      --bg-2: #f5f8ef;
+      --ink-1: #1f2a37;
+      --ink-2: #4b5563;
+      --line: #e6edf3;
+      --green-row: #dff4d5;
+      --blue: #1976ff;
+      --teal: #27b39a;
+      --red: #e84e4e;
+      --amber: #f59e0b;
+      --chip: #eef5ff;
+      --shadow: 0 20px 60px rgba(28, 40, 64, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink-1);
+      font-family: "Source Han Sans SC", "Noto Sans SC", "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(900px 380px at 6% -8%, rgba(125, 211, 252, 0.35), transparent 60%),
+        radial-gradient(900px 380px at 100% 0%, rgba(74, 222, 128, 0.22), transparent 55%),
+        linear-gradient(180deg, var(--bg-1), var(--bg-2));
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 28px auto 40px;
+      padding: 0 18px 40px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      animation: lift 520ms ease both;
+    }
+
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .title h1 {
+      font-size: 22px;
+      letter-spacing: 1px;
+      margin: 0;
+    }
+
+    .title span {
+      color: var(--ink-2);
+      font-size: 13px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #e9f1ff;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: inset 0 0 0 1px rgba(25, 118, 255, 0.12);
+    }
+
+    .tab.hot {
+      background: #ffe9ea;
+      color: var(--red);
+      box-shadow: inset 0 0 0 1px rgba(232, 78, 78, 0.15);
+    }
+
+    .table-wrap {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      padding: 12px 10px;
+      font-weight: 700;
+      text-align: left;
+      background: #f8fbff;
+      border-bottom: 1px solid var(--line);
+      color: #1b2b3e;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    thead th .sort {
+      display: inline-block;
+      margin-left: 6px;
+      color: #9aa5b1;
+      font-size: 11px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--line);
+      animation: rowIn 520ms ease both;
+      animation-delay: calc(var(--i) * 80ms);
+    }
+
+    tbody tr:nth-child(odd) {
+      background: var(--green-row);
+    }
+
+    tbody tr:hover {
+      background: #eaf6ff;
+    }
+
+    td {
+      padding: 12px 10px;
+      vertical-align: top;
+    }
+
+    .pair {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      line-height: 1.25;
+      color: var(--ink-2);
+    }
+
+    .pair strong {
+      color: var(--ink-1);
+    }
+
+    .link {
+      color: var(--blue);
+      margin-left: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--blue);
+      font-size: 11px;
+    }
+
+    .muted { color: #8b95a5; }
+    .blue { color: var(--blue); }
+    .teal { color: var(--teal); }
+    .red { color: var(--red); }
+    .amber { color: var(--amber); }
+    .mono { font-variant-numeric: tabular-nums; }
+    .up { color: #10b981; font-weight: 700; }
+    .down { color: var(--red); font-weight: 700; }
+
+    .cell-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      line-height: 1.25;
+    }
+
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      border: 1px solid #c6d1dd;
+      border-radius: 3px;
+      display: inline-block;
+      background: #fff;
+    }
+
+    .badge {
+      font-weight: 700;
+      color: var(--blue);
+    }
+
+    .subtle {
+      font-size: 12px;
+      color: var(--ink-2);
+    }
+
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes lift {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1100px) {
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 1150px; }
+    }
+  </style>
+ </head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="title">
+        <h1>跨所套利监控表</h1>
+        <span>实时筛选多空配对、资金费与价差变化</span>
+      </div>
+      <div class="tabs">
+        <span class="tab">资金费</span>
+        <span class="tab">价差</span>
+        <span class="tab hot">净资金费</span>
+        <span class="tab">持仓量</span>
+        <span class="tab hot">机会</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:38px;"></th>
+            <th>交易对</th>
+            <th>持仓(均/组/额)<span class="sort">▲▼</span></th>
+            <th>预估强平价/保证金率/浮亏<span class="sort">▲▼</span></th>
+            <th>差价(当前/前差/变开)<span class="sort">▲▼</span></th>
+            <th>净资金费<span class="sort">▲▼</span></th>
+            <th>资金费(当)<span class="sort">▲▼</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="--i:1">
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="pair">
+                <div>多: <strong>RIVER/USDT</strong>/<span class="blue">Bitget</span>现货<span class="badge">(27.6566)</span>市<a class="link" href="#">曲线</a><a class="link" href="#">关联</a></div>
+                <div>空: <strong>RIVER/USDT</strong>/<span class="blue">Gate</span>U本位<span class="badge">(27.683)</span>市<a class="link" href="#">充提</a><a class="link" href="#">详情</a></div>
+              </div>
+            </td>
+            <td>
+              <div class="cell-lines mono">
+                <div>多: 23.521697/255.798207/<span class="blue">6016.81</span></div>
+                <div>空: 23.584092/255/<span class="blue">6013.94</span></div>
+              </div>
+            </td>
+            <td>
+              <div class="cell-lines mono">
+                <div>多: --/<span class="blue">100000%</span>/--/17.58%</div>
+                <div>空: 122.15/<span class="blue">341.25%</span>/6.5%/-17.38%</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>差价: <span class="blue">-0.0806%</span>/<span class="red">0.1747%</span>/0.2646%</div>
+                <div>预/前/暴: 6.87/-0.7352%/<span class="blue">82.2</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>当: <span class="blue">0.1386%</span>/1h/22:00 <span class="down">↓</span></div>
+                <div>下: 0.1386%/1h/23:00</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0%/0h/0%</div>
+                <div>空: 0.1386%/1h/2% <span class="down">↓</span></div>
+              </div>
+            </td>
+          </tr>
+
+          <tr style="--i:2">
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="pair">
+                <div>多: <strong>RIVER/USDT</strong>/<span class="blue">Bitget</span>现货<span class="badge">(27.6566)</span>市<a class="link" href="#">曲线</a><a class="link" href="#">关联</a></div>
+                <div>空: <strong>RIVER/USDT</strong>/<span class="blue">欧易</span>U本位<span class="badge">(27.696)</span>市<a class="link" href="#">充提</a><a class="link" href="#">详情</a></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 20.091997/245.347349/<span class="blue">4929.52</span></div>
+                <div>空: 20.28935/245.3/<span class="blue">4976.98</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: --/<span class="blue">100000%</span>/--/37.65%</div>
+                <div>空: 112.202991/<span class="blue">305.12%</span>/2829.1924%/-36.51%</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>差价: <span class="blue">-0.0336%</span>/<span class="red">0.1603%</span>/0.9727%</div>
+                <div>预/前/暴: 37.88/0.3577%/<span class="blue">18.38</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>当: <span class="red">-0.03%</span>/1h/22:00 <span class="up">↑</span></div>
+                <div>下: -0.03%/1h/23:00</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0%/0h/0%</div>
+                <div>空: -0.03%/1h/1.5% <span class="up">↑</span></div>
+              </div>
+            </td>
+          </tr>
+
+          <tr style="--i:3">
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="pair">
+                <div>多: <strong>BEAT/USDT</strong>/<span class="blue">Gate</span>现货<span class="badge">(0.3062)</span>市<a class="link" href="#">曲线</a><a class="link" href="#">关联</a></div>
+                <div>空: <strong>BEAT/USDT</strong>/<span class="blue">Bybit</span>U本位<span class="badge">(0.3065)</span>市<a class="link" href="#">充提</a><a class="link" href="#">详情</a></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0.757872/4002.14678/<span class="blue">3033.11</span></div>
+                <div>空: 0.75862/3998/<span class="blue">3032.96</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: --/<span class="blue">100000%</span>/--/-59.6%</div>
+                <div>空: 4.489958/<span class="blue">1364.91%</span>/3422.1218%/59.6%</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>差价: <span class="blue">0.0326%</span>/<span class="red">0.1305%</span>/0.0986%</div>
+                <div>预/前/暴: -0.48/-1.3294%/<span class="blue">78.96</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>当: <span class="blue">0.0013%</span>/1h/22:00 <span class="down">↓</span></div>
+                <div>下: 0.0013%/1h/23:00</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0%/0h/0%</div>
+                <div>空: 0.0013%/1h/2.5% <span class="down">↓</span></div>
+              </div>
+            </td>
+          </tr>
+
+          <tr style="--i:4">
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="pair">
+                <div>多: <strong>RIVER/USDT</strong>/<span class="blue">Bitget</span>现货<span class="badge">(27.6566)</span>市<a class="link" href="#">曲线</a><a class="link" href="#">关联</a></div>
+                <div>空: <strong>RIVER/USDT</strong>/<span class="blue">Bybit</span>U本位<span class="badge">(27.678)</span>市<a class="link" href="#">充提</a><a class="link" href="#">详情</a></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 22.361065/134.797013/<span class="blue">3014.2</span></div>
+                <div>空: 22.528679/134.7/<span class="blue">3034.61</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: --/<span class="blue">100000%</span>/--/-23.68%</div>
+                <div>空: 151.932307/<span class="blue">448.93%</span>/7663.3732%/-22.86%</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>差价: <span class="blue">-0.0986%</span>/<span class="red">0.0809%</span>/0.744%</div>
+                <div>预/前/暴: 20.07/0.3556%/<span class="blue">326.43</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>当: <span class="blue">0.0182%</span>/1h/22:00 <span class="down">↓</span></div>
+                <div>下: 0.0182%/1h/23:00</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0%/0h/0%</div>
+                <div>空: 0.0182%/1h/2% <span class="down">↓</span></div>
+              </div>
+            </td>
+          </tr>
+
+          <tr style="--i:5">
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="pair">
+                <div>多: <strong>ZAMA/USDT</strong>/<span class="blue">Gate</span>U本位<span class="badge">(0.06258)</span>市<a class="link" href="#">曲线</a><a class="link" href="#">关联</a></div>
+                <div>空: <strong>ZAMA/USDT</strong>/<span class="blue">币安</span>U本位<span class="badge">(0.0628)</span>市<a class="link" href="#">充提</a><a class="link" href="#">详情</a></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0.094499/25720/<span class="blue">2430.53</span></div>
+                <div>空: 0.094398/25720/<span class="blue">2427.92</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0/<span class="blue">100000%</span>/10%/-33.78%</div>
+                <div>空: 0.712361/<span class="blue">1034.33%</span>/--/-33.47%</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>差价: <span class="blue">0.207%</span>/<span class="red">0.5087%</span>/-0.1074%</div>
+                <div>预/前/暴: -10.84/0%/<span class="blue">-2.04</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>当: <span class="blue">0%</span>/4h/24:00</div>
+                <div>下: 0%/4h/04:00</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0.005%/4h/2.5%</div>
+                <div>空: 0.005%/4h/2%</div>
+              </div>
+            </td>
+          </tr>
+
+          <tr style="--i:6">
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="pair">
+                <div>多: <strong>BERA/USDT</strong>/<span class="blue">欧易</span>U本位<span class="badge">(0.8821)</span>市<a class="link" href="#">曲线</a><a class="link" href="#">关联</a></div>
+                <div>空: <strong>BERA/USDT</strong>/<span class="blue">币安</span>U本位<span class="badge">(0.8742)</span>市<a class="link" href="#">充提</a><a class="link" href="#">详情</a></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: 0.876515/2401.8/<span class="blue">2105.21</span></div>
+                <div>空: 0.869607/2401.8/<span class="blue">2088.62</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: --/<span class="blue">100000%</span>/2829.19%/0.64%</div>
+                <div>空: 5.830177/<span class="blue">566.92%</span>/--/-0.53%</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>差价: <span class="blue">-0.9151%</span>/<span class="red">-0.8921%</span>/-0.7944%</div>
+                <div>预/前/暴: 2.14/0%/<span class="blue">-2.1</span></div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>当: <span class="blue">0.2413%</span>/4h/24:00 <span class="up">↑</span></div>
+                <div>下: 0.2413%/4h/04:00</div>
+              </div>
+            </td>
+            <td class="mono">
+              <div class="cell-lines">
+                <div>多: -1.3068%/4h/1.5% <span class="up">↑</span></div>
+                <div>空: -1.0654%/4h/2% <span class="up">↑</span></div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

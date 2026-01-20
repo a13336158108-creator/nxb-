@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>跨所套利监控</title>
+  <style>
+    :root {
+      --bg-a: #f3f8ff;
+      --bg-b: #f2f7f0;
+      --card: #ffffff;
+      --line: #e5edf5;
+      --ink: #1f2a37;
+      --muted: #6b7280;
+      --row-green: #dbf2cf;
+      --blue: #1b71ff;
+      --red: #f04444;
+      --teal: #20b486;
+      --amber: #f59e0b;
+      --shadow: 0 18px 50px rgba(15, 24, 40, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Smiley Sans", "Alibaba PuHuiTi", "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 360px at -5% -10%, rgba(129, 199, 255, 0.35), transparent 60%),
+        radial-gradient(900px 360px at 110% 0%, rgba(34, 197, 94, 0.22), transparent 50%),
+        linear-gradient(180deg, var(--bg-a), var(--bg-b));
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1420px;
+      margin: 28px auto 50px;
+      padding: 0 18px 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+      animation: drop 520ms ease both;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 1px;
+    }
+
+    .title p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 999px;
+      background: #ecf2ff;
+      color: var(--blue);
+      font-weight: 600;
+      box-shadow: inset 0 0 0 1px rgba(27, 113, 255, 0.15);
+    }
+
+    .tab.warn {
+      background: #ffe8ea;
+      color: var(--red);
+      box-shadow: inset 0 0 0 1px rgba(240, 68, 68, 0.15);
+    }
+
+    .table-card {
+      background: rgba(255, 255, 255, 0.93);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+
+    .table-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 12px 6px;
+      font-size: 12px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.65);
+    }
+
+    .refresh {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status {
+      font-weight: 700;
+      color: var(--amber);
+    }
+
+    .status.ok { color: var(--teal); }
+    .status.error { color: var(--red); }
+
+    .refresh button {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      color: var(--ink);
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .refresh button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(31, 42, 55, 0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: #f7fbff;
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      color: #1d2a3b;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    thead th .sort {
+      margin-left: 6px;
+      color: #9aa5b1;
+      font-size: 11px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--line);
+      animation: fadeUp 520ms ease both;
+      animation-delay: calc(var(--i) * 90ms);
+    }
+
+    tbody tr:nth-child(odd) { background: var(--row-green); }
+    tbody tr:hover { background: #e9f5ff; }
+
+    td {
+      padding: 12px 10px;
+      vertical-align: top;
+    }
+
+    .cell-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      line-height: 1.25;
+    }
+
+    .pair {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      line-height: 1.25;
+      color: var(--muted);
+    }
+
+    .pair strong { color: var(--ink); }
+
+    .link {
+      color: var(--blue);
+      text-decoration: none;
+      margin-left: 6px;
+      font-weight: 600;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #edf4ff;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      border: 1px solid #c5d0dc;
+      border-radius: 3px;
+      display: inline-block;
+      background: #fff;
+    }
+
+    .mono { font-variant-numeric: tabular-nums; }
+    .blue { color: var(--blue); }
+    .red { color: var(--red); }
+    .teal { color: var(--teal); }
+    .amber { color: var(--amber); }
+    .up { color: var(--teal); font-weight: 700; }
+    .down { color: var(--red); font-weight: 700; }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 20px 0;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes drop {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1100px) {
+      .table-card { overflow-x: auto; }
+      table { min-width: 1200px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="title">
+        <h1>跨所套利监控</h1>
+        <p>多空配对 · 价差 · 资金费 · 风险敞口</p>
+      </div>
+      <div class="tabs">
+        <span class="tab">资金费</span>
+        <span class="tab">价差</span>
+        <span class="tab warn">净资金费</span>
+        <span class="tab">持仓量</span>
+        <span class="tab warn">机会</span>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-meta">
+        <div id="last-update">等待数据...</div>
+        <div class="refresh">
+          <span class="status" id="status">连接中</span>
+          <button id="refresh-btn" type="button">刷新</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:38px;"></th>
+            <th>交易对</th>
+            <th>持仓(均/组/额)<span class="sort">▲▼</span></th>
+            <th>预估强平价/保证金率/浮亏<span class="sort">▲▼</span></th>
+            <th>差价(当前/前差/变开)<span class="sort">▲▼</span></th>
+            <th>净资金费<span class="sort">▲▼</span></th>
+            <th>资金费(当)<span class="sort">▲▼</span></th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const tableBody = document.getElementById("table-body");
+    const lastUpdateEl = document.getElementById("last-update");
+    const statusEl = document.getElementById("status");
+    const refreshBtn = document.getElementById("refresh-btn");
+    const REFRESH_MS = 60000;
+    let timer = null;
+
+    function toNumber(value) {
+      if (value === null || value === undefined) return null;
+      const cleaned = String(value).replace("%", "").trim();
+      if (!cleaned || cleaned === "--") return null;
+      const num = Number(cleaned);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function parsePercent(value) {
+      const num = toNumber(value);
+      if (num === null) return null;
+      return String(value).includes("%") ? num / 100 : num;
+    }
+
+    function formatFixed(num, digits) {
+      if (num === null) return "--";
+      return num.toFixed(digits);
+    }
+
+    function formatPercent(num, digits) {
+      if (num === null) return "--";
+      return (num * 100).toFixed(digits) + "%";
+    }
+
+    function signClass(num) {
+      if (num === null) return "";
+      if (num > 0) return "red";
+      if (num < 0) return "blue";
+      return "";
+    }
+
+    function calcPnl(entry, price, side) {
+      if (entry === null || price === null || entry === 0) return null;
+      return side === "short" ? (entry - price) / entry : (price - entry) / entry;
+    }
+
+    function setStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.classList.remove("ok", "error");
+      if (type) {
+        statusEl.classList.add(type);
+      }
+    }
+
+    function renderRows(headers, rows) {
+      tableBody.innerHTML = "";
+      if (!rows || rows.length === 0) {
+        const empty = document.createElement("tr");
+        empty.innerHTML = '<td class="empty" colspan="7">暂无数据</td>';
+        tableBody.appendChild(empty);
+        return;
+      }
+
+      rows.forEach((row, idx) => {
+        const data = {};
+        headers.forEach((header, index) => {
+          data[header] = row[index] ?? "--";
+        });
+
+        const symbol = data.symbol || "--";
+        const longEx = data.long_ex || "--";
+        const shortEx = data.short_ex || "--";
+
+        const longEntry = toNumber(data.long_entry);
+        const shortEntry = toNumber(data.short_entry);
+        const priceLong = toNumber(data.price_long);
+        const priceShort = toNumber(data.price_short);
+
+        const spreadNow = toNumber(data.spread_now);
+        const spreadEntry = toNumber(data.spread_entry);
+        const spreadDelta =
+          spreadNow !== null && spreadEntry !== null ? spreadNow - spreadEntry : null;
+
+        const longRate = parsePercent(data.long_rate);
+        const shortRate = parsePercent(data.short_rate);
+        const netRate =
+          longRate !== null && shortRate !== null ? longRate - shortRate : null;
+
+        const netFunding = toNumber(data.net_funding);
+        const pnlLong = calcPnl(longEntry, priceLong, "long");
+        const pnlShort = calcPnl(shortEntry, priceShort, "short");
+
+        const arrow = netRate === null ? "" : (netRate >= 0 ? "↑" : "↓");
+
+        const tr = document.createElement("tr");
+        tr.style.setProperty("--i", idx + 1);
+        tr.innerHTML = `
+          <td><span class="checkbox"></span></td>
+          <td>
+            <div class="pair">
+              <div>多: <strong>${symbol}</strong>/<span class="blue">${longEx}</span>现货 <span class="chip">(${formatFixed(priceLong, 4)})</span> 市<a class="link" href="#">曲线</a><a class="link" href="#">关联</a></div>
+              <div>空: <strong>${symbol}</strong>/<span class="blue">${shortEx}</span>U本位 <span class="chip">(${formatFixed(priceShort, 4)})</span> 市<a class="link" href="#">充提</a><a class="link" href="#">详情</a></div>
+            </div>
+          </td>
+          <td class="mono">
+            <div class="cell-lines">
+              <div>多: ${data.long_entry}/${data.long_size}/<span class="blue">${data.long_notional}</span></div>
+              <div>空: ${data.short_entry}/${data.short_size}/<span class="blue">${data.short_notional}</span></div>
+            </div>
+          </td>
+          <td class="mono">
+            <div class="cell-lines">
+              <div>多: --/--/--/<span class="${signClass(pnlLong)}">${formatPercent(pnlLong, 2)}</span></div>
+              <div>空: --/--/--/<span class="${signClass(pnlShort)}">${formatPercent(pnlShort, 2)}</span></div>
+            </div>
+          </td>
+          <td class="mono">
+            <div class="cell-lines">
+              <div>差价: <span class="${signClass(spreadNow)}">${formatPercent(spreadNow, 4)}</span>/<span class="${signClass(spreadEntry)}">${formatPercent(spreadEntry, 4)}</span>/<span class="${signClass(spreadDelta)}">${formatPercent(spreadDelta, 4)}</span></div>
+              <div>净资: <span class="${signClass(netFunding)}">${formatFixed(netFunding, 4)}</span></div>
+            </div>
+          </td>
+          <td class="mono">
+            <div class="cell-lines">
+              <div>当: <span class="${signClass(netRate)}">${formatPercent(netRate, 4)}</span>/${data.long_next} ${arrow}</div>
+              <div>下: ${formatPercent(netRate, 4)}/${data.short_next}</div>
+            </div>
+          </td>
+          <td class="mono">
+            <div class="cell-lines">
+              <div>多: <span class="${signClass(longRate)}">${formatPercent(longRate, 4)}</span>/${data.long_next}</div>
+              <div>空: <span class="${signClass(shortRate)}">${formatPercent(shortRate, 4)}</span>/${data.short_next}</div>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    async function refreshOnce() {
+      setStatus("加载中", "");
+      try {
+        const res = await fetch("/api/monitor");
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setStatus(data.error || "请求失败", "error");
+          return;
+        }
+        renderRows(data.headers || [], data.rows || []);
+        const stamp = new Date((data.ts || Date.now() / 1000) * 1000);
+        lastUpdateEl.textContent = "更新时间: " + stamp.toLocaleString() + " · 每60秒刷新";
+        setStatus(data.message || "已更新", "ok");
+      } catch (err) {
+        setStatus("连接失败", "error");
+      }
+    }
+
+    refreshBtn.addEventListener("click", () => refreshOnce());
+    refreshOnce();
+    timer = setInterval(refreshOnce, REFRESH_MS);
+  </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{
+  "events": [
+    {
+      "event": "EXPAND",
+      "long_ex": "Binance",
+      "short_ex": "Binance",
+      "signal": "OPEN",
+      "spread_delta": 0.042440400907164645,
+      "spread_entry": -0.042440400907164645,
+      "spread_now": 0.0,
+      "symbol": "BERA/USDT",
+      "ts": 1768841834
+    },
+    {
+      "event": "CONVERGE",
+      "long_ex": "Gate",
+      "short_ex": "Binance",
+      "signal": "HOLD",
+      "spread_delta": -0.0035782151141195324,
+      "spread_entry": 0.0010742531489849607,
+      "spread_now": -0.0025039619651345715,
+      "symbol": "ZAMA/USDT",
+      "ts": 1768841834
+    },
+    {
+      "event": "EXPAND",
+      "long_ex": "Binance",
+      "short_ex": "OKX",
+      "signal": "OPEN",
+      "spread_delta": 0.001620024602407521,
+      "spread_entry": 0.001669449081803005,
+      "spread_now": 0.003289473684210526,
+      "symbol": "BTC/USDT",
+      "ts": 1768843319
+    },
+    {
+      "event": "CONVERGE",
+      "long_ex": "Gate",
+      "short_ex": "Bybit",
+      "signal": "HOLD",
+      "spread_delta": -0.015229215229215231,
+      "spread_entry": 0.010101010101010102,
+      "spread_now": -0.005128205128205128,
+      "symbol": "ETH/USDT",
+      "ts": 1768843319
+    }
+  ],
+  "ts": 1768904570
+}
