@@ -267,6 +267,7 @@
         <div class="refresh">
           <span class="status" id="status">连接中</span>
           <button id="refresh-btn" type="button">刷新</button>
+          <button id="logout-btn" type="button">退出</button>
         </div>
       </div>
       <table>
@@ -291,6 +292,7 @@
     const lastUpdateEl = document.getElementById("last-update");
     const statusEl = document.getElementById("status");
     const refreshBtn = document.getElementById("refresh-btn");
+    const logoutBtn = document.getElementById("logout-btn");
     const REFRESH_MS = 60000;
     let timer = null;
 
@@ -427,6 +429,10 @@
       setStatus("加载中", "");
       try {
         const res = await fetch("/api/monitor");
+        if (res.status === 401) {
+          window.location.href = "/login.html";
+          return;
+        }
         const data = await res.json();
         if (!res.ok || data.error) {
           setStatus(data.error || "请求失败", "error");
@@ -442,6 +448,13 @@
     }
 
     refreshBtn.addEventListener("click", () => refreshOnce());
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await fetch("/api/logout", { method: "POST" });
+      } finally {
+        window.location.href = "/login.html";
+      }
+    });
     refreshOnce();
     timer = setInterval(refreshOnce, REFRESH_MS);
   </script>

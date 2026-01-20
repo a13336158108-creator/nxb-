@@ -2,11 +2,11 @@ import base64
 import json
 import secrets
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from core import TABLE_HEADERS, build_rows, rows_to_lists
@@ -95,17 +95,64 @@ def create_app(root_dir: Path, data_dir: Path, auth_user: str = "", auth_pass: s
     app.state.data_dir = data_dir
     app.state.auth_user = auth_user
     app.state.auth_pass = auth_pass
+    app.state.sessions = set()  # type: Set[str]
+
+    unauth_paths = {"/login.html", "/api/login", "/api/logout", "/favicon.ico"}
 
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next):
+        path = request.url.path
+        if path in unauth_paths:
+            return await call_next(request)
+
+        authorized = False
         if request.app.state.auth_user:
             header = request.headers.get("Authorization", "")
-            if not _is_authorized(header, request.app.state.auth_user, request.app.state.auth_pass):
+            authorized = _is_authorized(header, request.app.state.auth_user, request.app.state.auth_pass)
+        else:
+            authorized = True
+
+        if not authorized:
+            token = request.cookies.get("shadow_session", "")
+            if token and token in request.app.state.sessions:
+                authorized = True
+
+        if not authorized:
+            if path.startswith("/api/"):
                 return Response(
                     status_code=401,
                     headers={"WWW-Authenticate": 'Basic realm="shadow_arb_monitor"'},
                 )
+            return RedirectResponse("/login.html", status_code=303)
         return await call_next(request)
+
+    @app.post("/api/login")
+    async def api_login(request: Request):
+        if not request.app.state.auth_user:
+            return _json_response({"ok": True}, status_code=200)
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        if not secrets.compare_digest(username, request.app.state.auth_user) or not secrets.compare_digest(
+            password, request.app.state.auth_pass
+        ):
+            return _json_response({"error": "Invalid credentials"}, status_code=401)
+        token = secrets.token_urlsafe(32)
+        request.app.state.sessions.add(token)
+        response = _json_response({"ok": True}, status_code=200)
+        response.set_cookie("shadow_session", token, max_age=86400, httponly=True, samesite="lax", path="/")
+        return response
+
+    @app.get("/api/logout")
+    async def api_logout_get(request: Request):
+        return _clear_session(request)
+
+    @app.post("/api/logout")
+    async def api_logout_post(request: Request):
+        return _clear_session(request)
 
     @app.get("/api/state")
     async def api_state():
@@ -166,3 +213,12 @@ def _read_data_file(data_dir: Path, name: str) -> JSONResponse:
     except Exception as exc:
         return _json_response({"error": f"Failed to read {path}: {exc}"}, status_code=500)
     return _json_response(payload, status_code=200)
+
+
+def _clear_session(request: Request) -> JSONResponse:
+    token = request.cookies.get("shadow_session", "")
+    if token:
+        request.app.state.sessions.discard(token)
+    response = _json_response({"ok": True}, status_code=200)
+    response.delete_cookie("shadow_session", path="/")
+    return response
