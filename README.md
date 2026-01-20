@@ -124,7 +124,8 @@ python3 -m http.server 8080
 Open `http://127.0.0.1:8080/read_only_ui.html`.
 
 ## Optional local web server (read-only)
-Serves the static UI files and a read-only `/api/monitor` endpoint that reads from `data/state.json`.
+FastAPI server that serves the static UI files via StaticFiles and exposes a read-only `/api/monitor`
+endpoint that reads from `data/state.json`.
 
 Run:
 ```
@@ -135,9 +136,10 @@ External access (bind all interfaces):
 ```
 python3 web_server.py --host 0.0.0.0 --port 8080 --auth-user YOURUSER --auth-pass YOURPASS
 ```
+Default basic-auth credentials (when not set via env/flags): `nxb` / `nxb`.
 
 ## Combined monitor + UI service (single port)
-Runs the monitor loop and serves the UI/API from the same process and port.
+Runs the monitor loop and serves the UI/API (FastAPI + StaticFiles) from the same process and port.
 
 Run:
 ```
@@ -153,6 +155,7 @@ External access (bind all interfaces):
 ```
 python3 service.py --host 0.0.0.0 --port 8080 --auth-user YOURUSER --auth-pass YOURPASS
 ```
+Default basic-auth credentials (when not set via env/flags): `nxb` / `nxb`.
 
 ## Formulas used (explicit)
 - Notional = |positionSize| * markPrice

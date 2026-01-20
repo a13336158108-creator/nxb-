@@ -3,13 +3,14 @@ import argparse
 import os
 import sys
 import threading
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
 
+import uvicorn
+
 import monitor
 from core import build_exchanges_from_env
-from web_server import Handler
+from fastapi_app import create_app
 
 
 def _monitor_loop(
@@ -66,17 +67,19 @@ def main() -> None:
         default=int(os.getenv("MONITOR_EVENTS_MAX", "200")),
         help="max events kept in events.json",
     )
+    env_auth_user = os.getenv("MONITOR_AUTH_USER")
+    env_auth_pass = os.getenv("MONITOR_AUTH_PASS")
     parser.add_argument(
         "--auth-user",
         type=str,
-        default=os.getenv("MONITOR_AUTH_USER", ""),
-        help="optional basic-auth username (or MONITOR_AUTH_USER)",
+        default=env_auth_user if env_auth_user is not None else "nxb",
+        help="basic-auth username (or MONITOR_AUTH_USER, default: nxb)",
     )
     parser.add_argument(
         "--auth-pass",
         type=str,
-        default=os.getenv("MONITOR_AUTH_PASS", ""),
-        help="optional basic-auth password (or MONITOR_AUTH_PASS)",
+        default=env_auth_pass if env_auth_pass is not None else "nxb",
+        help="basic-auth password (or MONITOR_AUTH_PASS, default: nxb)",
     )
     args = parser.parse_args()
 
@@ -111,14 +114,7 @@ def main() -> None:
     thread.start()
 
     root = Path(__file__).resolve().parent
-
-    def handler_factory(*h_args, **h_kwargs):
-        return Handler(*h_args, directory=str(root), **h_kwargs)
-
-    httpd = ThreadingHTTPServer((args.host, args.port), handler_factory)
-    httpd.data_dir = str(data_dir)  # type: ignore[attr-defined]
-    httpd.auth_user = args.auth_user  # type: ignore[attr-defined]
-    httpd.auth_pass = args.auth_pass  # type: ignore[attr-defined]
+    app = create_app(root, data_dir, args.auth_user, args.auth_pass)
 
     print(f"[INFO] Serving {root}")
     print(f"[INFO] Data dir: {data_dir}")
@@ -126,13 +122,11 @@ def main() -> None:
     print(f"[INFO] Or:   http://{args.host}:{args.port}/index.html")
     if args.host not in ("127.0.0.1", "localhost") and not args.auth_user:
         print("[WARN] Binding to a non-local interface without auth; consider --auth-user/--auth-pass.")
+
     try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
+        uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     finally:
         stop_event.set()
-        httpd.server_close()
 
 
 if __name__ == "__main__":
