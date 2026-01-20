@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from core import TABLE_HEADERS, build_rows, rows_to_lists
@@ -146,6 +146,10 @@ def create_app(root_dir: Path, data_dir: Path, auth_user: str = "", auth_pass: s
         except Exception as exc:
             return _json_response({"error": f"Failed to build monitor payload: {exc}"}, status_code=500)
         return _json_response(payload, status_code=200)
+
+    @app.get("/")
+    async def index():
+        return FileResponse(root_dir / "index.html")
 
     app.mount("/", SafeStaticFiles(directory=str(root_dir), html=True), name="static")
     return app
